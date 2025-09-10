@@ -1,3 +1,4 @@
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { IconButton, TextTooltip } from 'app/components/library';
@@ -15,6 +16,47 @@ interface Props {
 export const MusuRow = (props: Props) => {
   const { musu, obols } = props.data;
   const { modals, setModals } = useVisibility();
+  const [displayMusu, setDisplayMusu] = useState<number>(musu);
+  const rafRef = useRef<number | null>(null);
+  const startRef = useRef<number | null>(null);
+  const prevPropRef = useRef<number>(musu);
+
+  useEffect(() => {
+    // Cancel any in-flight animation
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    startRef.current = null;
+
+    const from = prevPropRef.current;
+    const to = musu;
+    const durationMs = 600; // simple, short animation
+
+    const step = (t: number) => {
+      if (startRef.current == null) startRef.current = t;
+      const elapsed = t - startRef.current;
+      const progress = Math.min(1, elapsed / durationMs);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const value = Math.round(from + (to - from) * eased);
+      setDisplayMusu(value);
+      if (progress < 1) rafRef.current = requestAnimationFrame(step);
+    };
+
+    // If difference is tiny, snap immediately
+    if (Math.abs(to - from) < 1) {
+      setDisplayMusu(to);
+      return;
+    }
+
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [musu]);
+
+  // Track previous prop for next animation
+  useEffect(() => {
+    prevPropRef.current = musu;
+  }, [musu]);
 
   return (
     <Container key='musu'>
@@ -46,7 +88,7 @@ export const MusuRow = (props: Props) => {
       <TextTooltip text={['MUSU']} direction='row' fullWidth>
         <MusuSection>
           <Icon src={ItemImages.musu} onClick={() => null} />
-          <Balance>{musu.toLocaleString()}</Balance>
+          <Balance>{displayMusu.toLocaleString()}</Balance>
         </MusuSection>
       </TextTooltip>
     </Container>
