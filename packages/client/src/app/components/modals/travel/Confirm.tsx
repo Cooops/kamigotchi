@@ -1,7 +1,8 @@
 import styled from 'styled-components';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { ActionButton } from 'app/components/library';
+import { ActionButton, TextTooltip } from 'app/components/library';
+import { calcCurrentStamina } from 'app/cache/account/calcs';
 import { findPathAndCost } from 'network/shapes/Room';
 import { NetworkLayer } from 'network/create';
 import { Account } from 'network/shapes/Account';
@@ -56,15 +57,33 @@ export const TravelConfirm = ({
   if (path.length === 0) return null; // still avoid rendering; effect will close
 
   const toRoom = useMemo(() => getRoomByIndex(world, components, targetRoomIndex), [world, components, targetRoomIndex]);
-  const previewSrc = useMemo(() => rooms?.[targetRoomIndex]?.backgrounds?.[0], [targetRoomIndex]);
+  const previewSrc = useMemo(() => {
+    const arr = rooms?.[targetRoomIndex]?.backgrounds;
+    return Array.isArray(arr) && arr.length ? arr[arr.length - 1] : undefined;
+  }, [targetRoomIndex]);
+  const [previewRatio, setPreviewRatio] = useState<number | null>(null);
+  useEffect(() => {
+    if (!previewSrc) { setPreviewRatio(null); return; }
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth && img.naturalHeight) {
+        setPreviewRatio(img.naturalWidth / img.naturalHeight);
+      }
+    };
+    img.src = previewSrc;
+    return () => { img.onload = null; };
+  }, [previewSrc]);
   const steps = useMemo(() => path.slice(0, -1), [path]);
-  const perRow = Math.min(8, Math.max(3, steps.length));
+  const perRow = Math.min(6, Math.max(3, steps.length));
   const rows = Math.max(1, Math.ceil(steps.length / perRow));
-  let thumbSize = 30 / perRow;
+  let thumbSize = 34 / perRow;
   if (rows > 1) thumbSize = Math.min(thumbSize, 24 / perRow);
   if (rows > 2) thumbSize = Math.min(thumbSize, 20 / perRow);
   if (rows > 1) thumbSize *= 0.94;
-  thumbSize = Math.max(2.1, Math.min(3.9, thumbSize));
+  thumbSize = Math.max(2.4, Math.min(5.4, thumbSize));
+
+  const currentStamina = useMemo(() => calcCurrentStamina(account), [account.stamina.sync, account.time.action, account.config]);
+  const staminaRemaining = useMemo(() => Math.max(0, currentStamina - staminaCost), [currentStamina, staminaCost]);
 
   return (
     <Container>
@@ -79,15 +98,17 @@ export const TravelConfirm = ({
                 <PillLabel>Moves</PillLabel>
                 <PillValue>{moves}</PillValue>
               </Pill>
-              <Pill>
-                <PillLabel>Stamina</PillLabel>
-                <PillValue>{staminaCost}</PillValue>
-              </Pill>
+              <TextTooltip text={[`Stamina Remaining After Journey: ${staminaRemaining}`]} direction='row'>
+                <Pill>
+                  <PillLabel>Stamina</PillLabel>
+                  <PillValue>{staminaCost}</PillValue>
+                </Pill>
+              </TextTooltip>
             </StatsRow>
           </StatsCard>
           <Divider />
           {steps.length > 0 && (
-            <ThumbRow style={{ ['--ts' as any]: `${thumbSize}vw` }}>
+            <ThumbRow $ts={thumbSize}>
               {steps.map((idx, i) => {
                 const src = rooms?.[idx]?.backgrounds?.[0];
                 return (
@@ -101,20 +122,22 @@ export const TravelConfirm = ({
           )}
         </Left>
         <Right>
-          {previewSrc ? (
-            <PreviewMask>
-              <Preview $src={previewSrc} />
-            </PreviewMask>
-          ) : (
-            <PreviewMask>
-              <PreviewPlaceholder />
-            </PreviewMask>
-          )}
+          <RightStack>
+            {previewSrc ? (
+              <PreviewMask $ratio={previewRatio ?? undefined}>
+                <Preview $src={previewSrc} />
+              </PreviewMask>
+            ) : (
+              <PreviewMask>
+                <PreviewPlaceholder />
+              </PreviewMask>
+            )}
+            <RightActions>
+              <ActionButton text='Queue Travel' onClick={queueMoves} disabled={path.length <= 1} />
+            </RightActions>
+          </RightStack>
         </Right>
       </Body>
-      <Footer>
-        <ActionButton text='Queue Travel' onClick={queueMoves} />
-      </Footer>
     </Container>
   );
 };
@@ -122,14 +145,14 @@ export const TravelConfirm = ({
 const Container = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.8vw;
-  padding: 0.8vw;
+  gap: 0.6vw;
+  padding: 0.6vw;
   color: black;
 `;
 const Body = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1vw;
+  gap: 0.8vw;
   align-items: start;
 `;
 const Left = styled.div`
@@ -140,10 +163,22 @@ const Left = styled.div`
 const Right = styled.div`
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+`;
+const RightStack = styled.div`
+  width: min(100%, 22vw);
+  margin-left: auto;
+  margin-right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vw;
+`;
+const RightActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
 `;
 const TitleRow = styled.div`
-  font-size: 1.4vw;
+  font-size: 1.3vw;
   font-weight: 700;
 `;
 const TitlePrefix = styled.span`
@@ -161,6 +196,8 @@ const StatsCard = styled.div`
 const StatsRow = styled.div`
   display: flex;
   gap: 0.6vw;
+  align-items: center;
+  flex-wrap: wrap;
 `;
 const Pill = styled.div`
   display: flex;
@@ -177,6 +214,7 @@ const PillValue = styled.div`
   font-size: 1.1vw;
   font-weight: 700;
 `;
+// removed inline stamina note; now shown via tooltip on the Stamina pill
 const Divider = styled.div`
   height: 0.12vw;
   background: rgba(0, 0, 0, 0.25);
@@ -184,36 +222,43 @@ const Divider = styled.div`
   /* Pull in slightly from edges to avoid touching rounded corners */
   margin: 0.2vw 0.3vw 0.4vw 0; 
 `;
-const PreviewMask = styled.div`
-  width: 100%;
-  height: 20vh;
-  border: 0.1vw solid black;
-  border-radius: 0.6vw;
+const PreviewMask = styled.div<{ $ratio?: number }>`
+  width: min(100%, 22vw);
+  height: ${({ $ratio }) => ($ratio ? 'auto' : '16vh')};
+  ${({ $ratio }) => ($ratio ? `aspect-ratio: ${$ratio};` : '')}
+  border: 0.12vw solid black;
+  border-radius: 0.8vw;
   overflow: hidden;
   box-sizing: border-box;
+  position: relative;
+  margin: 0 auto;
 `;
 const Preview = styled.div<{ $src: string }>`
   width: 100%;
   height: 100%;
   background-image: url(${(p) => p.$src});
-  background-size: cover;
+  background-size: 100% 100%;
   background-position: center;
+  background-repeat: no-repeat;
 `;
 const PreviewPlaceholder = styled.div`
   width: 100%;
   height: 100%;
-  border: 0.1vw dashed black;
+  border: 0.12vw dashed black;
+  border-radius: 0.8vw;
+  background: repeating-conic-gradient(from 0deg, #f8f8f8 0 15%, #eee 0 30%);
 `;
-const ThumbRow = styled.div`
+const ThumbRow = styled.div<{ $ts: number }>`
+  --ts: ${({ $ts }) => $ts}vw;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4vw;
+  gap: 0.5vw;
   align-items: center;
 `;
 const StepGroup = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 0.2vw;
+  gap: 0.3vw;
 `;
 const Thumb = styled.div<{ $src: string }>`
   width: var(--ts);
@@ -234,7 +279,4 @@ const ArrowSmall = styled.div``;
 const ArrowBig = styled.div`
   font-size: 1.6vw;
 `;
-const Footer = styled.div`
-  display: flex;
-  justify-content: flex-end;
-`;
+const Footer = styled.div``;
