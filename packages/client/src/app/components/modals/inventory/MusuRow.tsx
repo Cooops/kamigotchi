@@ -1,3 +1,4 @@
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { IconButton, TextTooltip } from 'app/components/library';
@@ -17,6 +18,43 @@ export const MusuRow = ({
   }
 }) => {
   const { modals, setModals } = useVisibility();
+  const [displayMusu, setDisplayMusu] = useState<number>(musu);
+  const rafRef = useRef<number | null>(null);
+  const startRef = useRef<number | null>(null);
+  const prevPropRef = useRef<number>(musu);
+
+  useEffect(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    startRef.current = null;
+
+    const from = prevPropRef.current;
+    const to = musu;
+    const durationMs = 600;
+
+    const step = (t: number) => {
+      if (startRef.current == null) startRef.current = t;
+      const elapsed = t - startRef.current;
+      const progress = Math.min(1, elapsed / durationMs);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const value = Math.round(from + (to - from) * eased);
+      setDisplayMusu(value);
+      if (progress < 1) rafRef.current = requestAnimationFrame(step);
+    };
+
+    if (Math.abs(to - from) < 1) {
+      setDisplayMusu(to);
+      return;
+    }
+
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [musu]);
+
+  useEffect(() => {
+    prevPropRef.current = musu;
+  }, [musu]);
 
   return (
     <Container key='musu'>
@@ -48,7 +86,7 @@ export const MusuRow = ({
       <TextTooltip text={['MUSU']} direction='row' fullWidth>
         <MusuSection>
           <Icon src={ItemImages.musu} onClick={() => null} />
-          <Balance>{musu.toLocaleString()}</Balance>
+          <Balance>{displayMusu.toLocaleString()}</Balance>
         </MusuSection>
       </TextTooltip>
     </Container>
