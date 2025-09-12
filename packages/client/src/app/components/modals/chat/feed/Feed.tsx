@@ -119,9 +119,9 @@ export const Feed = ({
         const account = getAccount(getEntityIndex(formatEntityID(movement.AccountId)));
 
         feedMessage.push(
-          <Row>
+          <Row style={{ backgroundColor: 'rgba(237, 171, 16, 0.2)' }}>
             <Bold color='#000'>{getDateString(movement.Timestamp)}</Bold>
-            <Text size={3} onClick={() => openAccountModal(account)}>
+            <Text size={1} onClick={() => openAccountModal(account)}>
               {account.name}
             </Text>
             {<Bold color='#eda910'> entered</Bold>} the room.
@@ -135,7 +135,7 @@ export const Feed = ({
         const kami = getKami(getEntityIndex(formatEntityID(harvest.KamiId)));
 
         feedMessage.push(
-          <Row>
+          <Row style={{ backgroundColor: 'rgba(177, 118, 241, 0.2)' }}>
             <Bold color='#000'>{getDateString(harvest.Timestamp)}</Bold>
             <TextTooltip text={[kami.name]}>
               <KamiIcon src={kami.image} onClick={() => openKamiModal(kami)} />
@@ -154,7 +154,7 @@ export const Feed = ({
         const room = getRoomByIndex(kill.RoomIndex);
 
         feedMessage.push(
-          <Row>
+          <Row style={{ backgroundColor: 'rgba(255, 97, 97, 0.2)' }}>
             <Bold color='#000'>{getDateString(kill.Timestamp * 1000)}</Bold>
             <TextTooltip text={[killer.name]}>
               <KamiIcon src={killer.image} onClick={() => openKamiModal(killer)} />
@@ -184,7 +184,7 @@ export const Feed = ({
         const room = getRoomByIndex(cast.nodeIndex);
 
         feedMessage.push(
-          <Row>
+          <Row style={{ backgroundColor: 'rgba(51, 165, 142, 0.2)' }}>
             <Bold color='#000'>{getDateString(cast.Timestamp * 1000)}</Bold>
             {caster.name}
             <Bold color='#33a58fff'> used </Bold>
@@ -504,6 +504,9 @@ const Row = styled.span`
   flex-flow: row wrap;
   align-items: center;
   gap: 0.3vw;
+  margin: 0.2vw 0;
+  border-radius: 0.2vw;
+  padding: 0 0 0 0.2vw;
 `;
 
 const Bold = styled.span<{ color: string }>`
