@@ -1,4 +1,3 @@
 {
-  "buildCommand": "cd packages/client && pnpm build:prod",
-  "outputDirectory": "packages/client/dist"
+  "buildCommand": "bash vercel.sh"
 }
